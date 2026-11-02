@@ -41,8 +41,8 @@ Dikembangkan untuk Penelitian Pemula LPPM Universitas Ngudi Waluyo 2026:
 Butuh Python 3.10–3.12.
 
 ```bash
-git clone https://github.com/<akun-anda>/<nama-repo>.git
-cd <nama-repo>
+git clone https://github.com/uctapradema/apriori-fpgrowth-streamlit.git
+cd apriori-fpgrowth-streamlit
 python -m venv .venv
 # Windows: .venv\Scripts\activate     | macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
@@ -60,7 +60,7 @@ git init
 git add .
 git commit -m "Aplikasi analisis sensitivitas Apriori vs FP-Growth"
 git branch -M main
-git remote add origin https://github.com/<akun-anda>/<nama-repo>.git
+git remote add origin https://github.com/uctapradema/apriori-fpgrowth-streamlit.git
 git push -u origin main
 ```
 

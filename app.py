@@ -117,7 +117,7 @@ else:
 st.sidebar.header("3 · Info")
 st.sidebar.metric("Transaksi", f"{X.shape[0]:,}".replace(",", "."))
 st.sidebar.metric(f"Item ({level})", f"{X.shape[1]:,}".replace(",", "."))
-st.sidebar.caption("Kode: github.com/[PERLU DIISI] · Lisensi MIT")
+st.sidebar.caption("Kode: [github.com/uctapradema/apriori-fpgrowth-streamlit](https://github.com/uctapradema/apriori-fpgrowth-streamlit) · Lisensi MIT")
 
 # ------------------------------------------------------------------ main
 st.title("Analisis Sensitivitas Apriori dan FP-Growth")
