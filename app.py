@@ -14,12 +14,20 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
+import importlib
+
+from src import business as BZ
 from src import data as D
-from src import present as PR
 from src import mining as M
+from src import present as PR
 from src import recommend as R
 from src import robust as RB
 from src import viz as V
+
+# Muat ulang modul src/ di setiap eksekusi. Di Streamlit Cloud, setelah ada push baru, app.py dimuat versi
+# terbarunya tetapi modul src/ bisa tertinggal versi lama di memori -> fungsi tidak cocok (TypeError).
+for _m in (D, BZ, M, RB, R, V, PR):
+    importlib.reload(_m)
 
 st.set_page_config(page_title="Apriori vs FP-Growth — Analisis Sensitivitas", page_icon="🛒", layout="wide")
 
