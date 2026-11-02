@@ -15,6 +15,7 @@ import pandas as pd
 import streamlit as st
 
 from src import data as D
+from src import present as PR
 from src import mining as M
 from src import recommend as R
 from src import robust as RB
@@ -23,6 +24,7 @@ from src import viz as V
 st.set_page_config(page_title="Apriori vs FP-Growth — Analisis Sensitivitas", page_icon="🛒", layout="wide")
 
 SAMPLE = Path(__file__).parent / "data" / "contoh_transaksi.csv"
+DEPT_FILE = Path(__file__).parent / "data" / "nama_departemen.csv"
 DEFAULT_SUP = {"SKU": [0.1, 0.2, 0.3, 0.5, 1, 2, 3], "Departemen": [1, 2, 3, 5, 10], "Deskripsi": [0.1, 0.2, 0.3, 0.5, 1, 2, 3]}
 DEFAULT_CONF = [10, 30, 50, 70, 90]
 
@@ -61,8 +63,10 @@ def fmt_pct(x, d=1):
 
 
 # ------------------------------------------------------------------ sidebar
-st.sidebar.title("🛒 Apriori vs FP-Growth")
-st.sidebar.caption("Analisis sensitivitas parameter × granularitas item, dengan seleksi aturan robust.")
+st.sidebar.title("🛒 Analisis Transaksi Toko")
+view = st.sidebar.radio("Tampilan", ["🏪 Presentasi Toko", "🔬 Analisis Riset"],
+                        help="Presentasi Toko: ringkasan bisnis berbahasa awam untuk pemilik toko. "
+                             "Analisis Riset: eksperimen Apriori vs FP-Growth untuk artikel.")
 
 st.sidebar.header("1 · Data")
 up = st.sidebar.file_uploader("Unggah CSV transaksi", type=["csv", "txt"],
@@ -89,11 +93,39 @@ else:
     desc_opt = ["(tidak ada)"] + c
     desc_col = st.sidebar.selectbox("Kolom deskripsi (opsional)", desc_opt, index=guess(["nama", "desc", "produk"], -1) + 1)
     date_col = st.sidebar.selectbox("Kolom tanggal (opsional)", desc_opt, index=guess(["tgl", "tanggal", "date", "time"], -1) + 1)
+    qty_col = st.sidebar.selectbox("Kolom jumlah (opsional)", desc_opt, index=guess(["qty", "jumlah", "quantity"], -1) + 1)
+    price_col = st.sidebar.selectbox("Kolom harga satuan (opsional)", desc_opt, index=guess(["price", "harga"], -1) + 1)
+    cost_col = st.sidebar.selectbox("Kolom harga pokok (opsional)", desc_opt, index=guess(["cost", "hpp", "pokok"], -1) + 1)
     mode = "generic"
-    cols = (trx_col, item_col, None if desc_col == "(tidak ada)" else desc_col, None if date_col == "(tidak ada)" else date_col)
+    nz = lambda v: None if v == "(tidak ada)" else v
+    cols = (trx_col, item_col, nz(desc_col), nz(date_col), nz(qty_col), nz(price_col), nz(cost_col))
 
 cr = clean(raw, mode, cols)
 items = cr.items
+
+# ------------------------------------------------------------------ nama departemen (dipakai kedua tampilan)
+PREFIX = 3
+if "dept_names" not in st.session_state or st.session_state.get("dept_src") != hash(raw):
+    dn = D.default_dept_names(items, PREFIX)
+    known = D.load_dept_names(DEPT_FILE) if DEPT_FILE.exists() else {}
+    dn["nama"] = dn["kode"].map(known).fillna("")
+    st.session_state.dept_names = dn
+    st.session_state.dept_src = hash(raw)
+
+
+def dept_name_map() -> dict:
+    dn = st.session_state.dept_names
+    return {r.kode: (r.nama if isinstance(r.nama, str) and r.nama.strip() else f"Dept {r.kode}") for r in dn.itertuples()}
+
+
+# ------------------------------------------------------------------ tampilan presentasi toko
+if view.startswith("🏪"):
+    with st.sidebar.expander("Nama kategori barang"):
+        st.caption("Kategori = 3 digit awal kode barang. Ubah kolom **nama** bila perlu.")
+        st.session_state.dept_names = st.data_editor(st.session_state.dept_names, hide_index=True, width="stretch",
+                                                     disabled=["kode", "produk_dominan", "transaksi"], key="dn_present")
+    PR.render(cr, D.item_names(items), dept_name_map(), PREFIX)
+    st.stop()
 
 st.sidebar.header("2 · Granularitas item")
 level = st.sidebar.radio("Tingkat item", ["SKU", "Departemen", "Deskripsi"], horizontal=True,
@@ -104,11 +136,10 @@ it_level, X = matrix(items, level, int(prefix))
 # nama item untuk tampilan
 sku_names = D.item_names(items)
 if level == "Departemen":
-    if "dept_names" not in st.session_state or st.session_state.get("dept_prefix") != prefix:
+    if int(prefix) != PREFIX and st.session_state.get("dept_prefix") != prefix:
         st.session_state.dept_names = D.default_dept_names(items, int(prefix))
         st.session_state.dept_prefix = prefix
-    dn = st.session_state.dept_names
-    names = {r.kode: (r.nama if isinstance(r.nama, str) and r.nama.strip() else f"Dept {r.kode}") for r in dn.itertuples()}
+    names = dept_name_map()
 elif level == "Deskripsi":
     names = {}
 else:

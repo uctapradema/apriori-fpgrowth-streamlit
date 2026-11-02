@@ -1,11 +1,33 @@
 # 🛒 Analisis Sensitivitas Apriori dan FP-Growth
 
-Aplikasi Streamlit untuk menganalisis pengaruh **minimum support**, **minimum confidence**, dan **granularitas item** terhadap keluaran dan biaya komputasi algoritma **Apriori** dan **FP-Growth** pada data transaksi ritel, lengkap dengan **seleksi aturan robust** (uji signifikansi + stabilitas) dan rekomendasi promosi.
+Aplikasi Streamlit dengan dua tampilan:
+
+- **🏪 Presentasi Toko** — ringkasan bisnis berbahasa awam untuk pemilik toko: omzet & laba kotor, jam/hari ramai, produk andalan, kategori, produk laris bermargin tipis, isi keranjang, barang yang dibeli bersamaan, pembatalan di kasir, dan rencana aksi. Semua angka & kalimat dihitung otomatis dari data, sehingga langsung menyesuaikan bila data diganti.
+- **🔬 Analisis Riset** — eksperimen untuk artikel: menganalisis pengaruh **minimum support**, **minimum confidence**, dan **granularitas item** terhadap keluaran dan biaya komputasi algoritma **Apriori** dan **FP-Growth** pada data transaksi ritel, lengkap dengan **seleksi aturan robust** (uji signifikansi + stabilitas) dan rekomendasi promosi.
 
 Dikembangkan untuk Penelitian Pemula LPPM Universitas Ngudi Waluyo 2026:
 *"Sensitivitas Parameter dan Granularitas Item Apriori dan FP-Growth pada Data Transaksi Ritel"*.
 
-## Fitur
+## Tampilan Presentasi Toko
+
+| Halaman | Isi |
+|---|---|
+| 1 Ringkasan | Omzet, laba kotor (perkiraan), jumlah struk, belanja per struk, dan hal-hal terpenting |
+| 2 Kapan toko ramai | Peta jam × hari, blok jam ramai, hari terbaik/terlemah |
+| 3 Produk andalan | 10 produk omzet & laba terbesar, berapa produk yang menghasilkan 50% dan 80% omzet |
+| 4 Kategori barang | Omzet vs laba per kategori; kategori penyumbang omzet vs penyumbang laba |
+| 5 Laris tapi untung tipis | Produk laris bermargin di bawah median dan dampak kenaikan margin 1 poin |
+| 6 Isi keranjang belanja | Struk 1 barang, nilai belanja, barang yang paling sering dibeli sendirian |
+| 7 Barang yang dibeli bersamaan | Pola kategori (penataan rak) dan pola produk (paket promosi) yang lolos uji statistik |
+| 8 Pembatalan transaksi | Nilai & sebaran pembatalan (total, tanpa rincian per kasir) |
+| 9 Rencana aksi | Langkah konkret + cara mengukurnya |
+| 10 Catatan data | Periode, asumsi harga pokok, keterbatasan |
+
+Navigasi dengan tombol **◀ Sebelumnya / Berikutnya ▶**. Periode yang dipresentasikan bisa dipilih di panel kiri, dan nama kategori bisa diedit di panel kiri (*Nama kategori barang*). Nama bawaan dibaca dari `data/nama_departemen.csv`.
+
+Kolom yang dibutuhkan mode presentasi: ID transaksi, item, harga satuan; sebaiknya juga jumlah, harga pokok, dan tanggal-jam. Log POS toko sudah memuat semuanya.
+
+## Fitur tampilan riset
 
 | Tab | Isi |
 |---|---|
@@ -25,9 +47,12 @@ Dikembangkan untuk Penelitian Pemula LPPM Universitas Ngudi Waluyo 2026:
 ├── requirements.txt
 ├── .streamlit/config.toml  # tema & batas unggah
 ├── data/
-│   └── contoh_transaksi.csv  # data SINTETIS untuk demo
+│   ├── contoh_transaksi.csv  # data SINTETIS untuk demo (dengan jumlah, harga, harga pokok)
+│   └── nama_departemen.csv   # label kategori (kode 3 digit -> nama), dapat diedit
 ├── src/
-│   ├── data.py       # baca CSV, pembersihan log POS / format umum, granularitas
+│   ├── data.py       # baca CSV, pembersihan log POS / format umum, granularitas, baris penjualan & pembatalan
+│   ├── business.py   # analisis bisnis: KPI, jam ramai, produk, kategori, margin, keranjang, pembatalan
+│   ├── present.py    # halaman-halaman Presentasi Toko
 │   ├── mining.py     # matriks transaksi-item, Apriori/FP-Growth, grid, ΔI
 │   ├── robust.py     # Fisher + BH, uji dua paruh, rekurensi subsampel
 │   ├── recommend.py  # pelabelan aturan & teks rekomendasi
@@ -90,9 +115,9 @@ Catatan memori: server gratis Streamlit Cloud ±1 GB RAM. Apriori mode default m
 **Format umum** (delimiter `,` / `;` / tab terdeteksi otomatis):
 
 ```
-no_transaksi,kode_item,nama_item,tanggal
-TRX00001,0020000,SEMBAKO VARIAN 1,2026-01-03 09:12
-TRX00001,0030000,MI INSTAN VARIAN 1,2026-01-03 09:12
+no_transaksi,kode_item,nama_item,tanggal,jumlah,harga,harga_pokok
+TRX00001,0020000,SEMBAKO VARIAN 1,2026-01-03 09:12,1,11000,10500
+TRX00001,0030000,MI INSTAN VARIAN 1,2026-01-03 09:12,2,3000,2700
 ```
 
 ## Metode singkat

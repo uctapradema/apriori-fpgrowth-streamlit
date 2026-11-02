@@ -7,4 +7,5 @@ venv/
 # jangan unggah data transaksi asli
 data/*.csv
 !data/contoh_transaksi.csv
+!data/nama_departemen.csv
 *.xlsx

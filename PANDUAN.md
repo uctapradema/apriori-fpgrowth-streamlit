@@ -1,5 +1,13 @@
 ## Panduan singkat
 
+Aplikasi punya dua tampilan (pilih di panel kiri, bagian **Tampilan**):
+
+- **🏪 Presentasi Toko** — untuk dipresentasikan ke pemilik toko. Pindah halaman dengan tombol ◀ ▶. Ubah periode dan nama kategori di panel kiri.
+- **🔬 Analisis Riset** — eksperimen Apriori vs FP-Growth untuk artikel (panduan di bawah).
+
+### Tampilan riset
+
+
 **Alur pemakaian**
 
 1. **Unggah data** di panel kiri. Aplikasi mengenali dua format:

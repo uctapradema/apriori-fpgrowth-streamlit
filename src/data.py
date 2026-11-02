@@ -16,15 +16,18 @@ from __future__ import annotations
 import io
 from dataclasses import dataclass, field
 
+import numpy as np
 import pandas as pd
 
 
 @dataclass
 class CleanResult:
     """Hasil pembersihan: tabel item bersih + log langkah pembersihan."""
-    items: pd.DataFrame                 # kolom: trx, item, desc, date (date boleh NaT)
+    items: pd.DataFrame                 # kolom: trx, item, desc, date (date boleh NaT) — biner, untuk penambangan
     steps: list[dict] = field(default_factory=list)
     checks: dict = field(default_factory=dict)
+    lines: pd.DataFrame | None = None   # baris penjualan lengkap: trx, item, desc, date, qty, price, cost
+    voids: pd.DataFrame | None = None   # baris pembatalan (VD1): trx, item, desc, date, qty, price
 
 
 def read_csv_auto(raw: bytes) -> pd.DataFrame:
@@ -81,11 +84,27 @@ def clean_pos_log(df: pd.DataFrame) -> CleanResult:
     steps.append(dict(tahap="3", aturan="Item = kode PLU; item ganda per nota dihitung sekali",
                       baris=len(items), transaksi=items["trx"].nunique()))
     checks["duplikat_item_per_nota"] = dup
-    return CleanResult(items=items.reset_index(drop=True), steps=steps, checks=checks)
+
+    num = lambda c: pd.to_numeric(plu[c], errors="coerce") if c in plu.columns else np.nan
+    lines = pd.DataFrame({"trx": plu["NOTA"].values, "item": plu["CODE"].values,
+                          "desc": plu["DESC"].values if "DESC" in plu.columns else plu["CODE"].values,
+                          "date": pd.to_datetime(plu["TGL"], errors="coerce").values,
+                          "qty": np.asarray(num("QTY"), dtype=float), "price": np.asarray(num("PRICE"), dtype=float),
+                          "cost": np.asarray(num("COST"), dtype=float)})
+    lines.loc[lines["cost"] <= 0, "cost"] = np.nan          # harga pokok 0/negatif dianggap tidak tercatat
+    vd = df[df["FLAG"] == "VD1"]
+    voids = pd.DataFrame({"trx": vd["NOTA"].values, "item": vd["CODE"].values,
+                          "desc": vd["DESC"].values if "DESC" in vd.columns else vd["CODE"].values,
+                          "date": pd.to_datetime(vd["TGL"], errors="coerce").values,
+                          "qty": pd.to_numeric(vd.get("QTY"), errors="coerce").values,
+                          "price": pd.to_numeric(vd.get("PRICE"), errors="coerce").values})
+    return CleanResult(items=items.reset_index(drop=True), steps=steps, checks=checks,
+                       lines=lines.reset_index(drop=True), voids=voids.reset_index(drop=True))
 
 
 def clean_generic(df: pd.DataFrame, trx_col: str, item_col: str,
-                  desc_col: str | None = None, date_col: str | None = None) -> CleanResult:
+                  desc_col: str | None = None, date_col: str | None = None,
+                  qty_col: str | None = None, price_col: str | None = None, cost_col: str | None = None) -> CleanResult:
     """Pembersihan untuk format umum: buang baris kosong, item ganda per transaksi dihitung sekali."""
     steps = [dict(tahap="0", aturan="Data mentah", baris=len(df), transaksi=df[trx_col].nunique())]
     d = df.dropna(subset=[trx_col, item_col]).copy()
@@ -96,12 +115,17 @@ def clean_generic(df: pd.DataFrame, trx_col: str, item_col: str,
         "desc": (d[desc_col] if desc_col else d[item_col]).astype(str).values,
         "date": pd.to_datetime(d[date_col], errors="coerce").values if date_col else pd.NaT,
     })
+    num = lambda c: pd.to_numeric(d[c], errors="coerce").values if c else np.full(len(d), np.nan)
+    lines = items.copy()
+    lines["qty"] = num(qty_col) if qty_col else 1.0
+    lines["price"] = num(price_col); lines["cost"] = num(cost_col)
+    lines.loc[lines["cost"] <= 0, "cost"] = np.nan
     n0 = len(items)
     items = items.drop_duplicates(["trx", "item"])
     steps.append(dict(tahap="2", aturan="Item ganda per transaksi dihitung sekali", baris=len(items),
                       transaksi=items["trx"].nunique()))
     return CleanResult(items=items.reset_index(drop=True), steps=steps,
-                       checks={"duplikat_item_per_transaksi": n0 - len(items)})
+                       checks={"duplikat_item_per_transaksi": n0 - len(items)}, lines=lines.reset_index(drop=True))
 
 
 def item_names(items: pd.DataFrame) -> dict:
@@ -119,6 +143,15 @@ def apply_granularity(items: pd.DataFrame, level: str, prefix_len: int = 3) -> p
     elif level == "Deskripsi":
         d["item"] = d["desc"].str.strip().str.upper()
     return d.drop_duplicates(["trx", "item"])
+
+
+def load_dept_names(path) -> dict:
+    """Baca CSV nama departemen (kolom kode,nama) -> {kode: nama}."""
+    try:
+        m = pd.read_csv(path, dtype=str)
+        return {k: v for k, v in zip(m["kode"], m["nama"]) if isinstance(v, str) and v.strip()}
+    except Exception:
+        return {}
 
 
 def default_dept_names(items: pd.DataFrame, prefix_len: int = 3, top: int = 3) -> pd.DataFrame:
